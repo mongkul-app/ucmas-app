@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, Sprout, Circle, Triangle, Square, Hexagon, Star, Trophy,
   X, Calculator, Settings as SettingsIcon, History as HistoryIcon,
 } from 'lucide-react';
 import { LEVELS } from '../data/levelConfig';
 
-const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+const ICONS: Record<string, LucideIcon> = {
   Sprout, Circle, Triangle, Square, Hexagon, Star, Trophy,
 };
 

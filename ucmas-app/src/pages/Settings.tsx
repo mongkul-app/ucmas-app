@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { Volume2, Moon, Bell, Gauge, Type, Globe, Check } from 'lucide-react';
 import { getSettings, saveSettings, type AppSettings } from '../utils/storage';
 
@@ -142,7 +143,7 @@ function ToggleRow({
   checked,
   onChange,
 }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   title: string;
   description: string;
   checked: boolean;

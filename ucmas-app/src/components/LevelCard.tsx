@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import {
   Sprout, Circle, Triangle, Square, Hexagon, Star, Trophy, ChevronRight,
 } from 'lucide-react';
 import type { LevelConfig } from '../data/levelConfig';
 import ProgressBar from './ProgressBar';
 
-const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+const ICONS: Record<string, LucideIcon> = {
   Sprout, Circle, Triangle, Square, Hexagon, Star, Trophy,
 };
 

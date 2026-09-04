@@ -1,4 +1,5 @@
 import { Trophy, Target, XCircle, MinusCircle, Clock, Gauge } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { formatTime, motivationalMessage } from '../utils/scoring';
 import type { SessionResultSummary } from '../hooks/useExerciseSession';
 
@@ -35,7 +36,7 @@ function StatBlock({
   value,
   accent,
 }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   label: string;
   value: string;
   accent: string;
