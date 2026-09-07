@@ -11,6 +11,9 @@ interface QuestionDisplayProps {
    * worked list to show instead of the "=" placeholder (used by a
    * "Show Answer" hint button). Ignored in 'static' mode. */
   revealed?: boolean;
+  /** When set (and revealed/static), shows this value in place of "?" —
+   * used by self-check modes where there's no answer input at all. */
+  answer?: number;
 }
 
 /**
@@ -27,6 +30,7 @@ export default function QuestionDisplay({
   presentationSpeedMs = 1500,
   onSequenceComplete,
   revealed = false,
+  answer,
 }: QuestionDisplayProps) {
   const lines = questionToLines(question);
   const [visibleIndex, setVisibleIndex] = useState(mode === 'sequential' ? -1 : lines.length - 1);
@@ -84,7 +88,9 @@ export default function QuestionDisplay({
         {lines.map((line, idx) => (
           <div key={idx}>{line}</div>
         ))}
-        <div className="border-t-4 border-slate-800 dark:border-white mt-1 pt-1 text-brand-600">?</div>
+        <div className="border-t-4 border-slate-800 dark:border-white mt-1 pt-1 text-brand-600">
+          {answer !== undefined ? answer : '?'}
+        </div>
       </div>
     </div>
   );
