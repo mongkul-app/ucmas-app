@@ -18,8 +18,11 @@ function pick<T>(arr: T[]): T {
  * running total dropping below the level's configured floor so results stay
  * age-appropriate, while higher levels permit deeper negative swings.
  */
-export function generateQuestion(config: LevelConfig): Question {
-  const opCount = randInt(config.minOperations, config.maxOperations);
+export function generateQuestion(config: LevelConfig, operationsOverride?: number): Question {
+  const opCount =
+    operationsOverride && operationsOverride > 0
+      ? operationsOverride
+      : randInt(config.minOperations, config.maxOperations);
   const numbers: number[] = [];
   const operations: Operation[] = [];
 
@@ -68,8 +71,11 @@ function signature(q: Question): string {
 
 /**
  * Generates `count` unique, non-duplicate questions for a level, in randomized order.
+ * `operationsOverride`, when set, fixes the number of +/- operations per question
+ * (i.e. rows - 1), overriding the level's own min/max range — this powers the
+ * "number of rows" picker that lets a student choose 3-20 rows for any level.
  */
-export function generateQuestionSet(config: LevelConfig, count: number): Question[] {
+export function generateQuestionSet(config: LevelConfig, count: number, operationsOverride?: number): Question[] {
   const questions: Question[] = [];
   const seen = new Set<string>();
   let attempts = 0;
@@ -77,7 +83,7 @@ export function generateQuestionSet(config: LevelConfig, count: number): Questio
 
   while (questions.length < count && attempts < maxAttempts) {
     attempts++;
-    const q = generateQuestion(config);
+    const q = generateQuestion(config, operationsOverride);
     const sig = signature(q);
     if (seen.has(sig)) continue;
     seen.add(sig);
@@ -85,7 +91,7 @@ export function generateQuestionSet(config: LevelConfig, count: number): Questio
   }
   // Fallback: if we somehow can't find enough unique combos (tiny ranges), allow repeats.
   while (questions.length < count) {
-    questions.push(generateQuestion(config));
+    questions.push(generateQuestion(config, operationsOverride));
   }
   return questions;
 }
