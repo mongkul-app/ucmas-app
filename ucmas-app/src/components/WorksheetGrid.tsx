@@ -40,12 +40,10 @@ export default function WorksheetGrid({
                   </div>
                   <div className="font-mono text-sm sm:text-base font-semibold text-right px-2 py-2 tabular-nums">
                     {Array.from({ length: maxLines }).map((_, i) => (
-                      <div key={i} className={i === lines.length - 1 ? 'border-t-2 border-slate-700 pt-0.5' : ''}>
-                        {lines[i] ?? '\u00A0'}
-                      </div>
+                      <div key={i}>{lines[i] ?? '\u00A0'}</div>
                     ))}
                   </div>
-                  <div className="border-t border-slate-300 px-2 py-1.5 flex items-center justify-center gap-1 bg-white">
+                  <div className="border-t-2 border-slate-800 px-2 py-1.5 flex items-center justify-center gap-1 bg-white">
                     <span className="text-[10px] text-slate-400 font-semibold">Ans</span>
                     {readOnlyAnswers ? (
                       <span className="text-sm font-bold tabular-nums">{answers[q.id] ?? ''}</span>
