@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Dumbbell, Timer as TimerIcon, Zap, Shuffle, FileText, History as HistoryIcon, Play, Brain } from 'lucide-react';
+import { Dumbbell, Timer as TimerIcon, Zap, Shuffle, FileText, History as HistoryIcon, Play, Brain, Sparkles } from 'lucide-react';
 import ExerciseCard from '../components/ExerciseCard';
 import { LEVELS, getLevelConfig } from '../data/levelConfig';
-import { getResultsForLevel, getProgress } from '../utils/storage';
+import { getResultsForLevel, getProgress, getSettings, saveSettings } from '../utils/storage';
 import { formatTime } from '../utils/scoring';
+
+const ROW_OPTIONS = [0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 export default function LevelHome() {
   const { levelId } = useParams();
@@ -15,6 +17,12 @@ export default function LevelHome() {
   const config = getLevelConfig(safeLevelId);
   const results = useMemo(() => getResultsForLevel(safeLevelId), [safeLevelId]);
   const progress = useMemo(() => getProgress().find((p) => p.level === safeLevelId), [safeLevelId]);
+  const [rowsOverride, setRowsOverride] = useState(() => getSettings().rowsOverride);
+
+  const selectRows = (n: number) => {
+    setRowsOverride(n);
+    saveSettings({ ...getSettings(), rowsOverride: n });
+  };
 
   if (!isValidLevel) {
     return <Navigate to="/dashboard" replace />;
@@ -39,6 +47,27 @@ export default function LevelHome() {
             <span key={t} className="text-xs font-medium bg-slate-100 dark:bg-navy-700 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-full">
               {t}
             </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+          Rows per question (numbers to add/subtract) — applies to every mode below
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {ROW_OPTIONS.map((n) => (
+            <button
+              key={n}
+              onClick={() => selectRows(n)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border-2 ${
+                rowsOverride === n
+                  ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/10'
+                  : 'border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {n === 0 ? 'Level Default' : n}
+            </button>
           ))}
         </div>
       </div>
@@ -75,9 +104,16 @@ export default function LevelHome() {
         <ExerciseCard
           icon={Brain}
           title="Mental Arithmetic"
-          description="Numbers appear one at a time — no writing, pure mental math."
+          description="Numbers appear one at a time, then a keypad to answer."
           meta={`${Math.max(5, Math.round(config.questionCount * 0.5))} Questions · Sequential`}
           onClick={() => navigate(`/level/${safeLevelId}/mental-arithmetic`)}
+        />
+        <ExerciseCard
+          icon={Sparkles}
+          title="Flash Practice"
+          description="Full-screen flash cards, no typing — work it out on paper or abacus, then self-check."
+          meta={`${config.questionCount} Cards · No input`}
+          onClick={() => navigate(`/level/${safeLevelId}/flash`)}
         />
         <ExerciseCard
           icon={FileText}
