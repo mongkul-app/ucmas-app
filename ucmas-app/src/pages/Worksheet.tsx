@@ -161,7 +161,14 @@ export default function Worksheet() {
           <h2 className="text-2xl font-extrabold text-slate-900 mt-1">ABACUS &middot; MENTAL ARITHMETIC</h2>
           <p className="text-sm font-semibold text-slate-600 mt-1">Addition / Subtraction</p>
           <p className="text-sm font-semibold text-slate-600">Time Limit: {timeMinutes} Minutes</p>
-          <div className="no-print text-xs text-slate-400 mt-1">Name: _______________________ &nbsp; Date: _______________</div>
+          <div className="flex items-center justify-center gap-8 text-sm text-slate-500 mt-3">
+            <span className="flex items-center gap-2">
+              Name: <span className="inline-block w-40 border-b border-slate-400 h-4" />
+            </span>
+            <span className="flex items-center gap-2">
+              Date: <span className="inline-block w-28 border-b border-slate-400 h-4" />
+            </span>
+          </div>
         </div>
 
         <WorksheetGrid questions={questions} answers={answers} onAnswerChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))} />
