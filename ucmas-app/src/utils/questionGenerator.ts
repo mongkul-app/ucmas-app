@@ -10,6 +10,93 @@ function pick<T>(arr: T[]): T {
 }
 
 /**
+ * Decomposes a single-digit value (0-9) into what it looks like on one
+ * abacus rod: 1 heaven bead worth 5 (hv: 0 or 1) plus up to 4 earth beads
+ * worth 1 each (ev: 0-4).
+ */
+function decomposeDigit(v: number): { hv: number; ev: number } {
+  const hv = v >= 5 ? 1 : 0;
+  return { hv, ev: v - 5 * hv };
+}
+
+/**
+ * Generates a Foundation-style question where every +/- is a *direct* bead
+ * move on a single abacus rod — no "friend/complement" borrowing technique
+ * (that's introduced at higher levels). Given the rod's current state
+ * (h heaven beads, e earth beads), adding v is only legal if there's room to
+ * move the beads for v *toward* the bar without first clearing others out of
+ * the way, and subtracting v is only legal if those beads are already down.
+ * This is stricter than simply keeping the running total within 0-9 — e.g.
+ * 5+4 is blocked even though both digits and the total (9) are individually
+ * fine, because it requires swapping the heaven bead for four earth beads.
+ */
+function generateAbacusDirectQuestion(rowsCount: number): Question {
+  const first = randInt(1, 9);
+  let { hv: h, ev: e } = decomposeDigit(first);
+  const numbers: number[] = [first];
+  const operations: Operation[] = [];
+
+  for (let i = 1; i < rowsCount; i++) {
+    const preferAdd = Math.random() < 0.55;
+    const order: Operation[] = preferAdd ? ['+', '-'] : ['-', '+'];
+    let placed = false;
+
+    for (const op of order) {
+      const candidates: number[] = [];
+      for (let v = 1; v <= 9; v++) {
+        const d = decomposeDigit(v);
+        if (op === '+') {
+          if (h + d.hv <= 1 && e + d.ev <= 4) candidates.push(v);
+        } else if (d.hv <= h && d.ev <= e) {
+          candidates.push(v);
+        }
+      }
+      if (candidates.length) {
+        const v = pick(candidates);
+        const d = decomposeDigit(v);
+        if (op === '+') {
+          h += d.hv;
+          e += d.ev;
+        } else {
+          h -= d.hv;
+          e -= d.ev;
+        }
+        numbers.push(v);
+        operations.push(op);
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      // Safety net only — analytically this never triggers: subtracting the
+      // rod's current total, or adding to an empty rod, is always legal.
+      const total = h * 5 + e;
+      if (total > 0) {
+        numbers.push(total);
+        operations.push('-');
+        h = 0;
+        e = 0;
+      } else {
+        const v = randInt(1, 9);
+        const d = decomposeDigit(v);
+        h += d.hv;
+        e += d.ev;
+        numbers.push(v);
+        operations.push('+');
+      }
+    }
+  }
+
+  return {
+    id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    numbers,
+    operations,
+    answer: h * 5 + e,
+  };
+}
+
+/**
  * Generates a single UCMAS-style vertical arithmetic question for a given level.
  *
  * The first number is always positive (no leading operation). Every subsequent
@@ -23,6 +110,11 @@ export function generateQuestion(config: LevelConfig, operationsOverride?: numbe
     operationsOverride && operationsOverride > 0
       ? operationsOverride
       : randInt(config.minOperations, config.maxOperations);
+
+  if (config.abacusDirect) {
+    return generateAbacusDirectQuestion(opCount + 1);
+  }
+
   const numbers: number[] = [];
   const operations: Operation[] = [];
 
