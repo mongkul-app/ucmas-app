@@ -13,7 +13,8 @@ export type ExerciseMode =
   | 'speed-training'
   | 'random-challenge'
   | 'worksheet'
-  | 'mental-arithmetic';
+  | 'mental-arithmetic'
+  | 'flash';
 
 export interface QuestionAttempt {
   question: Question;
