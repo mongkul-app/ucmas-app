@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { X, Pause, Play } from 'lucide-react';
+import { X, Pause, Play, Eye } from 'lucide-react';
 import { LEVELS, getLevelConfig } from '../data/levelConfig';
 import { useExerciseSession } from '../hooks/useExerciseSession';
 import { getSettings } from '../utils/storage';
@@ -53,12 +53,14 @@ export default function Practice({ mode }: PracticeProps) {
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [revealAnswer, setRevealAnswer] = useState<number | null>(null);
   const [sequenceReady, setSequenceReady] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     setAnswerStr('');
     setSequenceReady(false);
     setFeedback(null);
     setRevealAnswer(null);
+    setRevealed(false);
   }, [session.currentIndex]);
 
   useEffect(() => {
@@ -158,9 +160,19 @@ export default function Practice({ mode }: PracticeProps) {
               mode={presentation}
               presentationSpeedMs={config.presentationSpeedMs * speedMultiplier}
               onSequenceComplete={() => setSequenceReady(true)}
+              revealed={revealed}
             />
             {!sequenceReady && revealAnswer === null && (
               <p className="text-xs text-slate-400 mt-3">Memorize as each number appears…</p>
+            )}
+            {sequenceReady && revealAnswer === null && !revealed && (
+              <button
+                onClick={() => setRevealed(true)}
+                className="btn-ghost text-xs mt-3 px-3 py-1.5"
+              >
+                <Eye size={14} />
+                Show Answer
+              </button>
             )}
             {revealAnswer !== null && (
               <p className={`text-base font-bold mt-4 ${feedback === 'correct' ? 'text-emerald-600' : 'text-rose-600'}`}>
