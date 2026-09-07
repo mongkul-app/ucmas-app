@@ -12,6 +12,7 @@ interface UseExerciseSessionOptions {
   mode: ExerciseMode;
   questionCount?: number;
   timeLimitSec?: number | null; // null = untimed (Practice mode)
+  operationsOverride?: number; // fixes rows-1 per question, overriding the level's own range
 }
 
 export interface SessionResultSummary {
@@ -27,7 +28,7 @@ export interface SessionResultSummary {
 
 const STORAGE_KEY_PREFIX = 'ucmas_session_';
 
-export function useExerciseSession({ config, mode, questionCount, timeLimitSec }: UseExerciseSessionOptions) {
+export function useExerciseSession({ config, mode, questionCount, timeLimitSec, operationsOverride }: UseExerciseSessionOptions) {
   const count = questionCount ?? config.questionCount;
   const limit = timeLimitSec === undefined ? config.defaultTimeLimitSec : timeLimitSec;
 
@@ -44,7 +45,7 @@ export function useExerciseSession({ config, mode, questionCount, timeLimitSec }
     } catch {
       /* ignore */
     }
-    return generateQuestionSet(config, count);
+    return generateQuestionSet(config, count, operationsOverride);
   });
 
   const [currentIndex, setCurrentIndex] = useState(0);
