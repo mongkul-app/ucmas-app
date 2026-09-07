@@ -5,6 +5,7 @@ import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import LevelHome from './pages/LevelHome';
 import Practice from './pages/Practice';
+import FlashPractice from './pages/FlashPractice';
 import Results from './pages/Results';
 import History from './pages/History';
 import Settings from './pages/Settings';
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/level/:levelId/speed-training" element={<Practice mode="speed-training" />} />
             <Route path="/level/:levelId/random-challenge" element={<Practice mode="random-challenge" />} />
             <Route path="/level/:levelId/mental-arithmetic" element={<Practice mode="mental-arithmetic" />} />
+            <Route path="/level/:levelId/flash" element={<FlashPractice />} />
             <Route path="/level/:levelId/worksheet" element={<Worksheet />} />
             <Route path="/results" element={<Results />} />
             <Route path="/history" element={<History />} />
