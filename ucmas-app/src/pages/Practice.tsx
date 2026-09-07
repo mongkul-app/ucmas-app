@@ -21,6 +21,7 @@ const MODE_LABELS: Record<ExerciseMode, string> = {
   'random-challenge': 'Random Challenge',
   'mental-arithmetic': 'Mental Arithmetic',
   worksheet: 'Worksheet',
+  flash: 'Flash Practice',
 };
 
 export default function Practice({ mode }: PracticeProps) {
@@ -47,8 +48,10 @@ export default function Practice({ mode }: PracticeProps) {
     timeLimitSec = null;
   }
 
-  const session = useExerciseSession({ config, mode, questionCount, timeLimitSec });
-  const speedMultiplier = getSettings().presentationSpeedMultiplier;
+  const settings = getSettings();
+  const operationsOverride = settings.rowsOverride > 0 ? settings.rowsOverride - 1 : undefined;
+  const session = useExerciseSession({ config, mode, questionCount, timeLimitSec, operationsOverride });
+  const speedMultiplier = settings.presentationSpeedMultiplier;
   const [answerStr, setAnswerStr] = useState('');
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [revealAnswer, setRevealAnswer] = useState<number | null>(null);
