@@ -171,6 +171,7 @@ export interface AppSettings {
   presentationSpeedMultiplier: number; // 1 = default, <1 faster, >1 slower
   fontSize: 'sm' | 'md' | 'lg';
   language: 'en' | 'km';
+  rowsOverride: number; // 0 = use each level's own default; otherwise 3-20 rows per question
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -181,10 +182,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   presentationSpeedMultiplier: 1,
   fontSize: 'md',
   language: 'en',
+  rowsOverride: 0,
 };
 
 export function getSettings(): AppSettings {
-  return read<AppSettings>(KEYS.settings, DEFAULT_SETTINGS);
+  return { ...DEFAULT_SETTINGS, ...read<Partial<AppSettings>>(KEYS.settings, {}) };
 }
 
 export function saveSettings(settings: AppSettings): void {
