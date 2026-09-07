@@ -15,6 +15,12 @@ export interface LevelConfig {
   allowedOperations: Operation[];
   negativeIntermediateAllowed: boolean; // whether the running total may dip below 0
   minRunningTotal: number; // floor for running total (foundation keeps this shallow)
+  /** When true, every +/- must be doable as a *direct* bead move on a single
+   * abacus rod (1 heaven bead = 5, 4 earth beads = 1 each) — no "friend/
+   * complement" borrowing technique, which is only taught at higher levels.
+   * Only Foundation uses this; other fields (minNumber/maxNumber/
+   * negativeIntermediateAllowed/minRunningTotal) are ignored when set. */
+  abacusDirect?: boolean;
   questionCount: number;
   defaultTimeLimitSec: number;
   presentationSpeedMs: number; // for mental-arithmetic sequential mode
@@ -38,6 +44,7 @@ export const LEVELS: LevelConfig[] = [
     allowedOperations: ['+', '-'],
     negativeIntermediateAllowed: false,
     minRunningTotal: 0,
+    abacusDirect: true,
     questionCount: 20,
     defaultTimeLimitSec: 480,
     presentationSpeedMs: 1800,
