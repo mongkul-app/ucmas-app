@@ -2,14 +2,18 @@ import type { Student } from '../types/student';
 import type { ExerciseResult } from '../types/exercise';
 import type { LevelProgress, Achievement } from '../types/progress';
 import { LEVELS } from '../data/levelConfig';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 /**
  * Storage service abstraction.
  *
  * Every read/write in the app goes through this module instead of touching
- * localStorage directly. Today it's backed by localStorage; later it can be
- * swapped for Supabase (or any API) by re-implementing the functions below
- * with the same signatures — nothing else in the app needs to change.
+ * localStorage directly. Reads stay synchronous (backed by a localStorage
+ * cache) so existing pages don't need to change — but when a Supabase
+ * account is signed in, writes are also pushed to Supabase in the background,
+ * and `syncFromSupabase()` pulls an account's data down into that same local
+ * cache right after login. That's what makes progress follow a student
+ * across devices while every page keeps reading `getX()` synchronously.
  */
 
 const KEYS = {
@@ -37,16 +41,31 @@ function write<T>(key: string, value: T): void {
   }
 }
 
+// ---------- Auth identity ----------
+// Set once by App.tsx whenever the Supabase session changes. When null, the
+// app behaves exactly as it always did: a local-only "Demo Student".
+
+let currentUserId: string | null = null;
+
+export function setAuthIdentity(userId: string | null): void {
+  currentUserId = userId;
+}
+
+export function getCurrentUserId(): string | null {
+  return currentUserId;
+}
+
 // ---------- Student ----------
 
 export function getStudent(): Student {
   const existing = read<Student | null>(KEYS.student, null);
-  if (existing) return existing;
+  const id = currentUserId ?? existing?.id ?? 'student_local';
+  if (existing && existing.id === id) return existing;
   const fresh: Student = {
-    id: 'student_local',
-    name: 'Demo Student',
-    currentLevel: 'foundation',
-    createdAt: new Date().toISOString(),
+    id,
+    name: existing?.name ?? 'Demo Student',
+    currentLevel: existing?.currentLevel ?? 'foundation',
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
   };
   write(KEYS.student, fresh);
   return fresh;
@@ -54,6 +73,15 @@ export function getStudent(): Student {
 
 export function saveStudent(student: Student): void {
   write(KEYS.student, student);
+  if (supabase && currentUserId) {
+    supabase
+      .from('profiles')
+      .upsert({ id: currentUserId, name: student.name, current_level: student.currentLevel })
+      .then(
+        () => {},
+        () => {}
+      );
+  }
 }
 
 // ---------- Results ----------
@@ -67,6 +95,30 @@ export function saveResult(result: ExerciseResult): void {
   all.unshift(result);
   write(KEYS.results, all);
   checkAndUnlockAchievements(all);
+
+  if (supabase && currentUserId) {
+    supabase
+      .from('results')
+      .insert({
+        id: result.id,
+        user_id: currentUserId,
+        level: result.level,
+        mode: result.mode,
+        total_questions: result.totalQuestions,
+        correct: result.correct,
+        wrong: result.wrong,
+        unanswered: result.unanswered,
+        accuracy: result.accuracy,
+        score: result.score,
+        time_used: result.timeUsed,
+        completed_at: result.completedAt,
+        difficulty: result.difficulty,
+      })
+      .then(
+        () => {},
+        () => {}
+      );
+  }
 }
 
 export function getResultsForLevel(level: string): ExerciseResult[] {
@@ -101,7 +153,6 @@ export function getProgress(): LevelProgress[] {
     const totalQuestionsAnswered = levelResults.reduce((sum, r) => sum + r.totalQuestions, 0);
     const totalCorrect = levelResults.reduce((sum, r) => sum + r.correct, 0);
     const totalTimeSec = levelResults.reduce((sum, r) => sum + r.timeUsed, 0);
-    // Heuristic mastery: blends volume of practice with best accuracy achieved.
     const volumeScore = Math.min(1, levelResults.length / 15);
     const progressPercent = Math.round(volumeScore * 40 + (bestAccuracy / 100) * 60);
 
@@ -196,6 +247,9 @@ export function saveSettings(settings: AppSettings): void {
 // ---------- Demo data seeding ----------
 
 export function seedDemoDataIfEmpty(): void {
+  // Real accounts start clean — only seed friendly demo data in local-only mode.
+  if (isSupabaseConfigured && currentUserId) return;
+
   const existing = getResults();
   if (existing.length > 0) return;
 
@@ -235,4 +289,70 @@ export function seedDemoDataIfEmpty(): void {
 
   demo.sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
   write(KEYS.results, demo);
+}
+
+// ---------- Supabase sync ----------
+
+/**
+ * Pulls an account's profile + results down from Supabase into the local
+ * cache right after sign-in, so every existing synchronous page immediately
+ * sees that account's real data. Called once from App.tsx when the session
+ * becomes available.
+ */
+export async function syncFromSupabase(userId: string, fallbackName: string): Promise<void> {
+  if (!supabase) return;
+  setAuthIdentity(userId);
+
+  const [{ data: profile }, { data: resultRows }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    supabase.from('results').select('*').eq('user_id', userId).order('completed_at', { ascending: false }),
+  ]);
+
+  if (!profile) {
+    // First time this account has ever signed in — create its profile row.
+    await supabase.from('profiles').upsert({ id: userId, name: fallbackName, current_level: 'foundation' });
+  }
+
+  const student: Student = {
+    id: userId,
+    name: profile?.name ?? fallbackName,
+    currentLevel: profile?.current_level ?? 'foundation',
+    createdAt: profile?.created_at ?? new Date().toISOString(),
+  };
+  write(KEYS.student, student);
+
+  const results: ExerciseResult[] = (resultRows ?? []).map((r: Record<string, any>) => ({
+    id: r.id,
+    studentId: r.user_id,
+    level: r.level,
+    mode: r.mode,
+    totalQuestions: r.total_questions,
+    correct: r.correct,
+    wrong: r.wrong,
+    unanswered: r.unanswered,
+    accuracy: r.accuracy,
+    score: r.score,
+    timeUsed: r.time_used,
+    completedAt: r.completed_at,
+    difficulty: r.difficulty,
+  }));
+  write(KEYS.results, results);
+
+  // Recompute achievements from this account's real history, not whatever
+  // happened to be cached on this device before signing in.
+  write(KEYS.achievements, {});
+  checkAndUnlockAchievements(results);
+}
+
+/** Resets the local cache back to a fresh anonymous "Demo Student" on sign-out. */
+export function clearLocalIdentity(): void {
+  setAuthIdentity(null);
+  write<Student>(KEYS.student, {
+    id: 'student_local',
+    name: 'Demo Student',
+    currentLevel: 'foundation',
+    createdAt: new Date().toISOString(),
+  });
+  write(KEYS.results, []);
+  write(KEYS.achievements, {});
 }
