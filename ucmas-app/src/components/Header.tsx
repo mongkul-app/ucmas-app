@@ -1,5 +1,7 @@
-import { Menu, Flame } from 'lucide-react';
+import { Menu, Flame, LogOut } from 'lucide-react';
 import { getStudent } from '../utils/storage';
+import { signOut } from '../hooks/useAuth';
+import { isSupabaseConfigured } from '../lib/supabaseClient';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -36,6 +38,16 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
               <p className="text-xs text-slate-400 leading-tight capitalize">{student.currentLevel.replace('-', ' ')}</p>
             </div>
           </div>
+          {isSupabaseConfigured && (
+            <button
+              onClick={() => signOut()}
+              className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-navy-700"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={18} />
+            </button>
+          )}
         </div>
       </div>
     </header>
