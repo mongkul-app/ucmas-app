@@ -2,9 +2,10 @@ import { NavLink } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, Sprout, Circle, Triangle, Square, Hexagon, Star, Trophy,
-  X, Calculator, Settings as SettingsIcon, History as HistoryIcon, Send,
+  X, Calculator, Settings as SettingsIcon, History as HistoryIcon, Send, UserPlus,
 } from 'lucide-react';
 import { LEVELS } from '../data/levelConfig';
+import { getStudent } from '../utils/storage';
 
 const ICONS: Record<string, LucideIcon> = {
   Sprout, Circle, Triangle, Square, Hexagon, Star, Trophy,
@@ -16,6 +17,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
+  const student = getStudent();
   const linkBase =
     'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors';
   const inactive = 'text-slate-300 hover:bg-navy-700 hover:text-white';
@@ -85,6 +87,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <SettingsIcon size={18} />
             Settings
           </NavLink>
+          {student.isAdmin && (
+            <NavLink to="/admin" onClick={onClose} className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+              <UserPlus size={18} />
+              Create Account
+            </NavLink>
+          )}
           <a
             href="https://t.me/kethsambo"
             target="_blank"
