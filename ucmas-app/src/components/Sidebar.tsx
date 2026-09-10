@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, Sprout, Circle, Triangle, Square, Hexagon, Star, Trophy,
-  X, Calculator, Settings as SettingsIcon, History as HistoryIcon,
+  X, Calculator, Settings as SettingsIcon, History as HistoryIcon, Send,
 } from 'lucide-react';
 import { LEVELS } from '../data/levelConfig';
 
@@ -85,10 +85,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <SettingsIcon size={18} />
             Settings
           </NavLink>
+          <a
+            href="https://t.me/kethsambo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${linkBase} ${inactive}`}
+          >
+            <Send size={18} />
+            Telegram
+          </a>
         </nav>
 
         <div className="px-5 py-4 border-t border-navy-700">
           <p className="text-[11px] text-slate-500">UCMAS-style trainer · Local data</p>
+          <p className="text-[11px] text-slate-600 mt-1">Copyright© Keth Sambo</p>
         </div>
       </aside>
     </>
