@@ -318,6 +318,7 @@ export async function syncFromSupabase(userId: string, fallbackName: string): Pr
     name: profile?.name ?? fallbackName,
     currentLevel: profile?.current_level ?? 'foundation',
     createdAt: profile?.created_at ?? new Date().toISOString(),
+    isAdmin: profile?.is_admin ?? false,
   };
   write(KEYS.student, student);
 
