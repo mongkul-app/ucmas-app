@@ -12,6 +12,7 @@ import History from './pages/History';
 import Settings from './pages/Settings';
 import Worksheet from './pages/Worksheet';
 import Login from './pages/Login';
+import Admin from './pages/Admin';
 import { seedDemoDataIfEmpty, getSettings, syncFromSupabase, clearLocalIdentity } from './utils/storage';
 import { useAuth } from './hooks/useAuth';
 import { isSupabaseConfigured } from './lib/supabaseClient';
@@ -106,6 +107,7 @@ export default function App() {
             <Route path="/results" element={<Results />} />
             <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/admin" element={<Admin />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
