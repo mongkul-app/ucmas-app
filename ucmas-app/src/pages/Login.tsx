@@ -1,23 +1,23 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Calculator, Mail, Lock, User, Loader2, Eye, EyeOff } from 'lucide-react';
-import { useAuth, signUpWithEmail, signInWithEmail, signInWithGoogle } from '../hooks/useAuth';
+import { Calculator, Mail, Lock, Loader2, Eye, EyeOff, Send } from 'lucide-react';
+import { useAuth, signInWithEmail, signInWithGoogle } from '../hooks/useAuth';
 import { isSupabaseConfigured } from '../lib/supabaseClient';
 
 // Google sign-in isn't enabled in Supabase yet — flip this back to true once
 // the Google provider is configured (Authentication -> Providers -> Google).
 const SHOW_GOOGLE_LOGIN = false;
 
+// Accounts are created by an admin (see the "Create Account" page), not by
+// self-service sign-up — so this page only offers Sign In, plus a way to
+// request an account over Telegram.
 export default function Login() {
   const { session, loading } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [confirmSent, setConfirmSent] = useState(false);
 
   if (!isSupabaseConfigured) {
     // No Supabase env vars configured — accounts aren't available yet, just
@@ -42,12 +42,7 @@ export default function Login() {
     setError(null);
     setSubmitting(true);
     try {
-      if (mode === 'signup') {
-        await signUpWithEmail(email, password, name || 'Student');
-        setConfirmSent(true);
-      } else {
-        await signInWithEmail(email, password);
-      }
+      await signInWithEmail(email, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
@@ -76,110 +71,82 @@ export default function Login() {
         </div>
 
         <div className="card p-6">
-          {confirmSent ? (
-            <div className="text-center py-4">
-              <p className="font-bold text-slate-800 dark:text-slate-100">Check your email</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                We sent a confirmation link to <span className="font-semibold">{email}</span>. Confirm it, then sign in.
-              </p>
-              <button onClick={() => { setConfirmSent(false); setMode('signin'); }} className="btn-secondary mt-4 text-sm">
-                Back to Sign In
-              </button>
-            </div>
-          ) : (
+          <h2 className="text-center font-bold text-slate-900 dark:text-white mb-5">Sign In</h2>
+
+          {SHOW_GOOGLE_LOGIN && (
             <>
-              <div className="flex rounded-xl bg-slate-100 dark:bg-navy-700 p-1 mb-5">
-                <button
-                  onClick={() => setMode('signin')}
-                  className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
-                    mode === 'signin' ? 'bg-white dark:bg-navy-800 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'
-                  }`}
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => setMode('signup')}
-                  className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
-                    mode === 'signup' ? 'bg-white dark:bg-navy-800 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'
-                  }`}
-                >
-                  Sign Up
-                </button>
+              <button
+                onClick={handleGoogle}
+                className="w-full flex items-center justify-center gap-2.5 rounded-xl border-2 border-slate-200 dark:border-navy-700 py-2.5 font-semibold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-navy-700 transition-colors"
+              >
+                <GoogleIcon />
+                Continue with Google
+              </button>
+
+              <div className="flex items-center gap-3 my-5">
+                <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
+                <span className="text-xs text-slate-400">or</span>
+                <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
               </div>
-
-              {SHOW_GOOGLE_LOGIN && (
-                <>
-                  <button
-                    onClick={handleGoogle}
-                    className="w-full flex items-center justify-center gap-2.5 rounded-xl border-2 border-slate-200 dark:border-navy-700 py-2.5 font-semibold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-navy-700 transition-colors"
-                  >
-                    <GoogleIcon />
-                    Continue with Google
-                  </button>
-
-                  <div className="flex items-center gap-3 my-5">
-                    <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
-                    <span className="text-xs text-slate-400">or</span>
-                    <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
-                  </div>
-                </>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-3">
-                {mode === 'signup' && (
-                  <div className="relative">
-                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Full name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 pl-9 pr-3 py-2.5 text-sm"
-                    />
-                  </div>
-                )}
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 pl-9 pr-3 py-2.5 text-sm"
-                  />
-                </div>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    minLength={6}
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 pl-9 pr-10 py-2.5 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-
-                {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
-
-                <button type="submit" disabled={submitting} className="btn-primary w-full mt-1">
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : mode === 'signup' ? 'Create Account' : 'Sign In'}
-                </button>
-              </form>
             </>
           )}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="relative">
+              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="email"
+                required
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 pl-9 pr-3 py-2.5 text-sm"
+              />
+            </div>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 pl-9 pr-10 py-2.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+            {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
+
+            <button type="submit" disabled={submitting} className="btn-primary w-full mt-1">
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Sign In'}
+            </button>
+          </form>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
+            <span className="text-xs text-slate-400">or</span>
+            <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
+          </div>
+
+          <a
+            href="https://t.me/kethsambo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl border-2 border-slate-200 dark:border-navy-700 py-2.5 font-semibold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-navy-700 transition-colors"
+          >
+            <Send size={16} />
+            Contact us on Telegram for an account
+          </a>
         </div>
       </div>
 
