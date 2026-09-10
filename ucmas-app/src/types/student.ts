@@ -3,4 +3,5 @@ export interface Student {
   name: string;
   currentLevel: string;
   createdAt: string;
+  isAdmin?: boolean;
 }
