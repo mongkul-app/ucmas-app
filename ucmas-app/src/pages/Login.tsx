@@ -1,8 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Calculator, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Calculator, Mail, Lock, User, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth, signUpWithEmail, signInWithEmail, signInWithGoogle } from '../hooks/useAuth';
 import { isSupabaseConfigured } from '../lib/supabaseClient';
+
+// Google sign-in isn't enabled in Supabase yet — flip this back to true once
+// the Google provider is configured (Authentication -> Providers -> Google).
+const SHOW_GOOGLE_LOGIN = false;
 
 export default function Login() {
   const { session, loading } = useAuth();
@@ -10,6 +14,7 @@ export default function Login() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmSent, setConfirmSent] = useState(false);
@@ -60,7 +65,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-navy-950 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-navy-950 px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
           <div className="h-12 w-12 rounded-2xl bg-brand-600 flex items-center justify-center mb-3">
@@ -102,19 +107,23 @@ export default function Login() {
                 </button>
               </div>
 
-              <button
-                onClick={handleGoogle}
-                className="w-full flex items-center justify-center gap-2.5 rounded-xl border-2 border-slate-200 dark:border-navy-700 py-2.5 font-semibold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-navy-700 transition-colors"
-              >
-                <GoogleIcon />
-                Continue with Google
-              </button>
+              {SHOW_GOOGLE_LOGIN && (
+                <>
+                  <button
+                    onClick={handleGoogle}
+                    className="w-full flex items-center justify-center gap-2.5 rounded-xl border-2 border-slate-200 dark:border-navy-700 py-2.5 font-semibold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-navy-700 transition-colors"
+                  >
+                    <GoogleIcon />
+                    Continue with Google
+                  </button>
 
-              <div className="flex items-center gap-3 my-5">
-                <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
-                <span className="text-xs text-slate-400">or</span>
-                <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
-              </div>
+                  <div className="flex items-center gap-3 my-5">
+                    <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
+                    <span className="text-xs text-slate-400">or</span>
+                    <div className="h-px bg-slate-200 dark:bg-navy-700 flex-1" />
+                  </div>
+                </>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 {mode === 'signup' && (
@@ -144,14 +153,23 @@ export default function Login() {
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     minLength={6}
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 pl-9 pr-3 py-2.5 text-sm"
+                    className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 pl-9 pr-10 py-2.5 text-sm"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
 
                 {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
@@ -164,6 +182,8 @@ export default function Login() {
           )}
         </div>
       </div>
+
+      <p className="text-xs text-slate-400 mt-6">Copyright© Keth Sambo</p>
     </div>
   );
 }
