@@ -8,8 +8,11 @@ import { getStudent, saveResult } from '../utils/storage';
 import WorksheetGrid from '../components/WorksheetGrid';
 import type { Question } from '../types/exercise';
 
-const QUESTION_COUNT_OPTIONS = [10, 20, 50, 100];
-const TIME_OPTIONS = [5, 8, 10, 15];
+// Rows per question: 0 = use the level's own default, otherwise a fixed
+// number of rows (first number + operations) from 3 up to 50.
+const ROWS_OPTIONS = [0, ...Array.from({ length: 48 }, (_, i) => i + 3)];
+const QUESTION_COUNT_OPTIONS = Array.from({ length: 20 }, (_, i) => (i + 1) * 10); // 10..200
+const TIME_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1); // 1..20 minutes
 const DIFFICULTY_OPTIONS: Array<'Easy' | 'Normal' | 'Hard'> = ['Easy', 'Normal', 'Hard'];
 
 function applyDifficulty(config: LevelConfig, difficulty: 'Easy' | 'Normal' | 'Hard'): LevelConfig {
@@ -27,19 +30,22 @@ export default function Worksheet() {
   const safeLevelId = isValidLevel ? (levelId as string) : LEVELS[0].id;
   const baseConfig = getLevelConfig(safeLevelId);
 
+  const [rowsOverride, setRowsOverride] = useState(0);
   const [questionCount, setQuestionCount] = useState(20);
   const [timeMinutes, setTimeMinutes] = useState(8);
   const [difficulty, setDifficulty] = useState<'Easy' | 'Normal' | 'Hard'>('Normal');
+
+  const effectiveConfig = useMemo(() => applyDifficulty(baseConfig, difficulty), [baseConfig, difficulty]);
+  const operationsOverride = rowsOverride > 0 ? rowsOverride - 1 : undefined;
+
   const [questions, setQuestions] = useState<Question[]>(() =>
     generateQuestionSet(applyDifficulty(baseConfig, 'Normal'), 20)
   );
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [checked, setChecked] = useState(false);
 
-  const effectiveConfig = useMemo(() => applyDifficulty(baseConfig, difficulty), [baseConfig, difficulty]);
-
   const regenerate = () => {
-    setQuestions(generateQuestionSet(effectiveConfig, questionCount));
+    setQuestions(generateQuestionSet(effectiveConfig, questionCount, operationsOverride));
     setAnswers({});
     setChecked(false);
   };
@@ -128,26 +134,41 @@ export default function Worksheet() {
         </div>
       </div>
 
-      <div className="no-print card p-5 grid sm:grid-cols-3 gap-4">
-        <SelectGroup label="Number of Questions" value={questionCount} options={QUESTION_COUNT_OPTIONS} onChange={setQuestionCount} />
-        <SelectGroup label="Time (minutes)" value={timeMinutes} options={TIME_OPTIONS} onChange={setTimeMinutes} />
+      <div className="no-print card p-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <SelectField
+          label="Rows per question"
+          value={rowsOverride}
+          onChange={(v) => setRowsOverride(v)}
+          options={ROWS_OPTIONS.map((n) => ({ value: n, label: n === 0 ? 'Level Default' : String(n) }))}
+        />
+        <SelectField
+          label="Number of Questions"
+          value={questionCount}
+          onChange={(v) => setQuestionCount(v)}
+          options={QUESTION_COUNT_OPTIONS.map((n) => ({ value: n, label: String(n) }))}
+        />
+        <SelectField
+          label="Time (minutes)"
+          value={timeMinutes}
+          onChange={(v) => setTimeMinutes(v)}
+          options={TIME_OPTIONS.map((n) => ({ value: n, label: String(n) }))}
+        />
         <div>
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Difficulty</p>
-          <div className="flex gap-1.5">
+          <select
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value as 'Easy' | 'Normal' | 'Hard')}
+            className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 px-3 py-2.5 text-sm font-medium"
+          >
             {DIFFICULTY_OPTIONS.map((d) => (
-              <button
-                key={d}
-                onClick={() => setDifficulty(d)}
-                className={`flex-1 rounded-lg px-2 py-2 text-xs font-semibold border-2 ${
-                  difficulty === d ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-300'
-                }`}
-              >
+              <option key={d} value={d}>
                 {d}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
-        <div className="sm:col-span-3">
+
+        <div className="sm:col-span-2 lg:col-span-4">
           <button onClick={regenerate} className="btn-primary">
             <RefreshCw size={16} />
             Generate Worksheet
@@ -192,7 +213,7 @@ export default function Worksheet() {
   );
 }
 
-function SelectGroup({
+function SelectField({
   label,
   value,
   options,
@@ -200,25 +221,23 @@ function SelectGroup({
 }: {
   label: string;
   value: number;
-  options: number[];
+  options: Array<{ value: number; label: string }>;
   onChange: (v: number) => void;
 }) {
   return (
     <div>
       <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">{label}</p>
-      <div className="flex gap-1.5">
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 px-3 py-2.5 text-sm font-medium"
+      >
         {options.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            className={`flex-1 rounded-lg px-2 py-2 text-xs font-semibold border-2 ${
-              value === opt ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-slate-200 dark:border-navy-700 text-slate-600 dark:text-slate-300'
-            }`}
-          >
-            {opt}
-          </button>
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   );
 }
