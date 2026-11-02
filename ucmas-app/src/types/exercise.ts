@@ -1,4 +1,4 @@
-export type Operation = '+' | '-';
+export type Operation = '+' | '-' | '×' | '÷';
 
 export interface Question {
   id: string;
