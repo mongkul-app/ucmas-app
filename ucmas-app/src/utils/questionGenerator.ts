@@ -96,6 +96,93 @@ function generateAbacusDirectQuestion(rowsCount: number): Question {
   };
 }
 
+// Largest running total a mixed-operation question may reach. Without a cap,
+// chains of × grow explosively (20 rows of ×2-9 reaches the quadrillions),
+// which is useless on a worksheet and overflows the 2cm answer box.
+const MIXED_TOTAL_CAP = 9999;
+
+/** Values that operation `op` may legally use on the current running total. */
+function mixedCandidates(op: Operation, total: number): number[] {
+  const values: number[] = [];
+  if (op === '+') {
+    for (let v = 1; v <= 9; v++) if (total + v <= MIXED_TOTAL_CAP) values.push(v);
+  } else if (op === '-') {
+    // Leave at least 1 so the total never reaches 0 (× and ÷ on 0 are pointless).
+    for (let v = 1; v <= Math.min(9, total - 1); v++) values.push(v);
+  } else if (op === '×') {
+    if (total > 0) for (let v = 2; v <= 9; v++) if (total * v <= MIXED_TOTAL_CAP) values.push(v);
+  } else if (total > 0) {
+    // '÷': only divisors of the current total, so answers stay whole numbers.
+    for (let v = 2; v <= 9; v++) if (total % v === 0) values.push(v);
+  }
+  return values;
+}
+
+/**
+ * Generates a question whose operations are drawn from an explicit list that
+ * may include multiplication (×) and/or division (÷), in addition to +/-.
+ * This is a separate, simpler engine from the abacus/running-total logic
+ * above: operands are single digits, every answer is a whole number
+ * (division only uses exact divisors), the running total never goes below 0
+ * and never exceeds MIXED_TOTAL_CAP.
+ *
+ * Each row picks a random allowed operation; if that operation has no legal
+ * value right now (e.g. × would exceed the cap, ÷ has no exact divisor), the
+ * other allowed operations are tried. If none fit, the row falls back to
+ * "+" on an empty total, otherwise "×1" (leaves the total unchanged and keeps
+ * the requested number of rows) — this mostly happens with pure
+ * multiplication and many rows.
+ *
+ * Used only when the caller explicitly picks an operation type (see the
+ * Worksheet page's dropdown) — the default +/- behavior, including
+ * Foundation's abacus-direct rules, is untouched otherwise.
+ */
+function generateMixedChain(rowsCount: number, allowedOps: Operation[]): Question {
+  const first = randInt(2, 9);
+  const numbers: number[] = [first];
+  const operations: Operation[] = [];
+  let total = first;
+
+  for (let i = 1; i < rowsCount; i++) {
+    // Try the allowed operations in random order, take the first that fits.
+    const order = [...allowedOps].sort(() => Math.random() - 0.5);
+    let chosenOp: Operation | null = null;
+    let value = 0;
+    for (const op of order) {
+      const values = mixedCandidates(op, total);
+      if (values.length > 0) {
+        chosenOp = op;
+        value = pick(values);
+        break;
+      }
+    }
+
+    if (chosenOp === null) {
+      if (total === 0) {
+        chosenOp = '+';
+        value = randInt(1, 9);
+      } else {
+        chosenOp = '×';
+        value = 1;
+      }
+    }
+
+    numbers.push(value);
+    operations.push(chosenOp);
+    if (chosenOp === '+') total += value;
+    else if (chosenOp === '-') total -= value;
+    else if (chosenOp === '×') total *= value;
+    else total /= value;
+  }
+
+  return {
+    id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    numbers,
+    operations,
+    answer: total,
+  };
+}
+
 /**
  * Generates a single UCMAS-style vertical arithmetic question for a given level.
  *
@@ -104,12 +191,25 @@ function generateAbacusDirectQuestion(rowsCount: number): Question {
  * total is tracked as each operation is applied; for beginner levels we avoid the
  * running total dropping below the level's configured floor so results stay
  * age-appropriate, while higher levels permit deeper negative swings.
+ *
+ * `allowedOpsOverride`, when given, replaces the level's own behavior with the
+ * mixed-operation engine (needed for × and ÷).
  */
-export function generateQuestion(config: LevelConfig, operationsOverride?: number): Question {
+export function generateQuestion(
+  config: LevelConfig,
+  operationsOverride?: number,
+  allowedOpsOverride?: Operation[]
+): Question {
   const opCount =
     operationsOverride && operationsOverride > 0
       ? operationsOverride
       : randInt(config.minOperations, config.maxOperations);
+
+  // An explicit operation-type choice takes priority over everything,
+  // including Foundation's abacus-direct rules.
+  if (allowedOpsOverride && allowedOpsOverride.length > 0) {
+    return generateMixedChain(opCount + 1, allowedOpsOverride);
+  }
 
   if (config.abacusDirect) {
     return generateAbacusDirectQuestion(opCount + 1);
@@ -127,13 +227,11 @@ export function generateQuestion(config: LevelConfig, operationsOverride?: numbe
     let value = randInt(config.minNumber, config.maxNumber);
 
     // If subtracting would push the running total below the allowed floor,
-    // and negative intermediates aren't allowed (or we're already at the floor),
-    // force an addition instead so the exercise stays solvable and appropriate.
+    // force an addition instead so the exercise stays solvable.
     if (op === '-' && runningTotal - value < config.minRunningTotal) {
       op = '+';
     }
-    // Occasionally clamp subtraction so it never exceeds the current running total
-    // for the very earliest levels (foundation), keeping results friendly for kids.
+    // For the earliest levels, never subtract more than the running total.
     if (!config.negativeIntermediateAllowed && op === '-' && value > runningTotal) {
       if (runningTotal <= 0) {
         op = '+';
@@ -162,12 +260,17 @@ function signature(q: Question): string {
 }
 
 /**
- * Generates `count` unique, non-duplicate questions for a level, in randomized order.
- * `operationsOverride`, when set, fixes the number of +/- operations per question
- * (i.e. rows - 1), overriding the level's own min/max range — this powers the
- * "number of rows" picker that lets a student choose 3-20 rows for any level.
+ * Generates `count` unique, non-duplicate questions for a level.
+ * `operationsOverride`, when set, fixes the number of operations per question
+ * (i.e. rows - 1). `allowedOpsOverride`, when set, picks which operations
+ * (+ - × ÷) the questions may use.
  */
-export function generateQuestionSet(config: LevelConfig, count: number, operationsOverride?: number): Question[] {
+export function generateQuestionSet(
+  config: LevelConfig,
+  count: number,
+  operationsOverride?: number,
+  allowedOpsOverride?: Operation[]
+): Question[] {
   const questions: Question[] = [];
   const seen = new Set<string>();
   let attempts = 0;
@@ -175,15 +278,15 @@ export function generateQuestionSet(config: LevelConfig, count: number, operatio
 
   while (questions.length < count && attempts < maxAttempts) {
     attempts++;
-    const q = generateQuestion(config, operationsOverride);
+    const q = generateQuestion(config, operationsOverride, allowedOpsOverride);
     const sig = signature(q);
     if (seen.has(sig)) continue;
     seen.add(sig);
     questions.push(q);
   }
-  // Fallback: if we somehow can't find enough unique combos (tiny ranges), allow repeats.
+  // Fallback: if we can't find enough unique combos (tiny ranges), allow repeats.
   while (questions.length < count) {
-    questions.push(generateQuestion(config, operationsOverride));
+    questions.push(generateQuestion(config, operationsOverride, allowedOpsOverride));
   }
   return questions;
 }
