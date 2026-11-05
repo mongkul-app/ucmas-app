@@ -6,7 +6,7 @@ import { generateQuestionSet } from '../utils/questionGenerator';
 import { calculateAccuracy, calculateScore } from '../utils/scoring';
 import { getStudent, saveResult } from '../utils/storage';
 import WorksheetGrid from '../components/WorksheetGrid';
-import type { Question } from '../types/exercise';
+import type { Operation, Question } from '../types/exercise';
 
 // Rows per question: 0 = use the level's own default, otherwise a fixed
 // number of rows (first number + operations) from 3 up to 50.
@@ -14,6 +14,29 @@ const ROWS_OPTIONS = [0, ...Array.from({ length: 48 }, (_, i) => i + 3)];
 const QUESTION_COUNT_OPTIONS = Array.from({ length: 20 }, (_, i) => (i + 1) * 10); // 10..200
 const TIME_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1); // 1..20 minutes
 const DIFFICULTY_OPTIONS: Array<'Easy' | 'Normal' | 'Hard'> = ['Easy', 'Normal', 'Hard'];
+
+// `ops: null` means "use the level's own addition/subtraction behavior"
+// (including Foundation's abacus bead rules). Every other choice uses the
+// mixed-operation engine with exactly these operations.
+interface OperationType {
+  value: string;
+  label: string;
+  ops: Operation[] | null;
+}
+
+const OPERATION_TYPES: OperationType[] = [
+  { value: 'add', label: 'Addition', ops: ['+'] },
+  { value: 'add_sub', label: 'Addition & Subtraction', ops: null },
+  { value: 'mul', label: 'Multiplication', ops: ['×'] },
+  { value: 'mul_add', label: 'Multiplication & Addition', ops: ['×', '+'] },
+  { value: 'mul_div', label: 'Multiplication & Division', ops: ['×', '÷'] },
+  { value: 'add_mul_div', label: 'Addition, Multiplication & Division', ops: ['+', '×', '÷'] },
+  { value: 'mul_sub', label: 'Multiplication & Subtraction', ops: ['×', '-'] },
+];
+
+// With an explicit operation type, "Level Default" rows would be the level's
+// long +/- chains (up to 15 rows), which makes little sense for × and ÷.
+const DEFAULT_ROWS_FOR_MIXED = 4;
 
 function applyDifficulty(config: LevelConfig, difficulty: 'Easy' | 'Normal' | 'Hard'): LevelConfig {
   const multiplier = difficulty === 'Easy' ? 0.7 : difficulty === 'Hard' ? 1.4 : 1;
@@ -30,28 +53,35 @@ export default function Worksheet() {
   const safeLevelId = isValidLevel ? (levelId as string) : LEVELS[0].id;
   const baseConfig = getLevelConfig(safeLevelId);
 
+  const [opTypeValue, setOpTypeValue] = useState('add_sub');
   const [rowsOverride, setRowsOverride] = useState(0);
   const [questionCount, setQuestionCount] = useState(20);
   const [timeMinutes, setTimeMinutes] = useState(8);
   const [difficulty, setDifficulty] = useState<'Easy' | 'Normal' | 'Hard'>('Normal');
 
+  const opType = OPERATION_TYPES.find((o) => o.value === opTypeValue) ?? OPERATION_TYPES[1];
+  const allowedOps = opType.ops ?? undefined;
   const effectiveConfig = useMemo(() => applyDifficulty(baseConfig, difficulty), [baseConfig, difficulty]);
-  const operationsOverride = rowsOverride > 0 ? rowsOverride - 1 : undefined;
+  const operationsOverride =
+    rowsOverride > 0 ? rowsOverride - 1 : allowedOps ? DEFAULT_ROWS_FOR_MIXED - 1 : undefined;
 
   const [questions, setQuestions] = useState<Question[]>(() =>
     generateQuestionSet(applyDifficulty(baseConfig, 'Normal'), 20)
   );
+  // The title above the grid shows the operation type the grid was generated
+  // with, not whatever the dropdown currently says.
+  const [generatedLabel, setGeneratedLabel] = useState(OPERATION_TYPES[1].label);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [checked, setChecked] = useState(false);
 
   const regenerate = () => {
-    setQuestions(generateQuestionSet(effectiveConfig, questionCount, operationsOverride));
+    setQuestions(generateQuestionSet(effectiveConfig, questionCount, operationsOverride, allowedOps));
+    setGeneratedLabel(opType.label);
     setAnswers({});
     setChecked(false);
   };
 
-  const summary = useMemo(() => {
-    if (!checked) return null;
+  const gradeAnswers = () => {
     let correct = 0;
     let answered = 0;
     questions.forEach((q) => {
@@ -73,30 +103,17 @@ export default function Worksheet() {
       timeLimitSec: timeMinutes * 60,
     });
     return { correct, wrong, unanswered, accuracy, score };
-  }, [checked, questions, answers, timeMinutes]);
+  };
+
+  const summary = useMemo(
+    () => (checked ? gradeAnswers() : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [checked, questions, answers, timeMinutes]
+  );
 
   const handleCheck = () => {
     setChecked(true);
-    let correct = 0;
-    let answered = 0;
-    questions.forEach((q) => {
-      const raw = answers[q.id];
-      if (raw !== undefined && raw !== '' && raw !== '-') {
-        answered += 1;
-        if (parseInt(raw, 10) === q.answer) correct += 1;
-      }
-    });
-    const wrong = answered - correct;
-    const unanswered = questions.length - answered;
-    const accuracy = calculateAccuracy(correct, questions.length);
-    const score = calculateScore({
-      correct,
-      wrong,
-      unanswered,
-      totalQuestions: questions.length,
-      timeUsedSec: timeMinutes * 60,
-      timeLimitSec: timeMinutes * 60,
-    });
+    const result = gradeAnswers();
     const student = getStudent();
     saveResult({
       id: `result_${Date.now()}`,
@@ -104,11 +121,11 @@ export default function Worksheet() {
       level: baseConfig.id,
       mode: 'worksheet',
       totalQuestions: questions.length,
-      correct,
-      wrong,
-      unanswered,
-      accuracy,
-      score,
+      correct: result.correct,
+      wrong: result.wrong,
+      unanswered: result.unanswered,
+      accuracy: result.accuracy,
+      score: result.score,
       timeUsed: timeMinutes * 60,
       completedAt: new Date().toISOString(),
       difficulty,
@@ -134,7 +151,21 @@ export default function Worksheet() {
         </div>
       </div>
 
-      <div className="no-print card p-5 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="no-print card p-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Operation type</p>
+          <select
+            value={opTypeValue}
+            onChange={(e) => setOpTypeValue(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 dark:border-navy-700 dark:bg-navy-800 px-3 py-2.5 text-sm font-medium"
+          >
+            {OPERATION_TYPES.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <SelectField
           label="Rows per question"
           value={rowsOverride}
@@ -168,7 +199,14 @@ export default function Worksheet() {
           </select>
         </div>
 
-        <div className="sm:col-span-2 lg:col-span-4">
+        {allowedOps && (
+          <p className="sm:col-span-2 lg:col-span-3 text-xs text-slate-500 dark:text-slate-400">
+            Tip: with × and ÷, "Level Default" uses {DEFAULT_ROWS_FOR_MIXED} rows. Multiplication-only works best
+            with 3-4 rows; answers are kept at 9999 or less.
+          </p>
+        )}
+
+        <div className="sm:col-span-2 lg:col-span-3">
           <button onClick={regenerate} className="btn-primary">
             <RefreshCw size={16} />
             Generate Worksheet
@@ -180,7 +218,7 @@ export default function Worksheet() {
         <div className="text-center border-b-2 border-slate-800 pb-3 mb-6">
           <p className="text-xs font-bold tracking-widest text-slate-500">CATEGORY: {baseConfig.name.toUpperCase()}</p>
           <h2 className="text-2xl font-extrabold text-slate-900 mt-1">ABACUS &middot; MENTAL ARITHMETIC</h2>
-          <p className="text-sm font-semibold text-slate-600 mt-1">Addition / Subtraction</p>
+          <p className="text-sm font-semibold text-slate-600 mt-1">{generatedLabel}</p>
           <p className="text-sm font-semibold text-slate-600">Time Limit: {timeMinutes} Minutes</p>
           <div className="flex items-center justify-center gap-8 text-sm text-slate-500 mt-3">
             <span className="flex items-center gap-2">
