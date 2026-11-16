@@ -10,9 +10,10 @@ interface WorksheetGridProps {
   readOnlyAnswers?: boolean;
 }
 
-// Each question box is a fixed 2cm wide (like the paper UCMAS worksheet), so
-// as many boxes as fit are laid out per row, on screen and when printed.
-const BOX_WIDTH = '2cm';
+// Each question box is a fixed width (like the paper UCMAS worksheet), so as
+// many boxes as fit are laid out per row, on screen and when printed.
+// 3cm leaves room for answers of up to ~8 characters at 20px (e.g. "-12345").
+const BOX_WIDTH = '3cm';
 const NUMBER_FONT_SIZE = '20px';
 const ANSWER_FONT_SIZE = '20px';
 
